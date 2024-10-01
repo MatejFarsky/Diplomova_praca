@@ -1,45 +1,44 @@
 option solver gurobi;
+option show_stats 1;
+option gurobi_options 'outlev=0 mipgap=0.01 timelim=5 multiobj=1' ;
 
 #params
 param n; #pocet casov
-param p{t in 0 .. n-1}; #ceny
-param b{t in 0 .. n-1}; #predosle nakupovana kapacita
-param d{t in 0 .. n-1}; #predosle predavana kapacita
-param a_0; #pociatocna kapacita
-param a_n; #koncova kapacita
-param L_x; #spodne ohranicenie kapacity
-param U_x; #horne ohranicenie kapacity
-param U_u; #ohranicenie nakupovanej kapacity
-param U_v; #ohranicenie predavanej kapacity
+param price{t in 0 .. n-1}; #ceny
+param buy_prev{t in 0 .. n-1}; #predosle nakupovana kapacita
+param sell_prev{t in 0 .. n-1}; #predosle predavana kapacita
+param cap_0; #pociatocna kapacita
+param cap_n; #koncova kapacita
+param Lower_cap; #spodne ohranicenie kapacity
+param Upper_cap; #horne ohranicenie kapacity
+param Upper_buy; #ohranicenie nakupovanej kapacity
+param Upper_sell; #ohranicenie predavanej kapacity
 param alpha; #koeficient ucinnosti nabijania
 param beta; #koeficient ucinnosti vybijania
 param c; #ohranicenie poctu cyklov
 
-var w{t in 0 .. n-1} binary;
-var v{t in 0 .. n-1};
+var buy_or_sell{t in 0 .. n-1} binary;
+var sell{t in 0 .. n-1};
+var buy{t in 0 .. n-1};
 
-s.t. constraint1{t in 0 .. n-1}: v[t] <= (1-w[t]) * U_v - d[t];
-s.t. constraint2{t in 0 .. n-1}: v[t] >= - d[t];
+var cap{t in 0 .. n} <= Upper_cap, >= Lower_cap;
+var buy_cycles{t in 0 .. n} <= c * (Upper_cap - Lower_cap), >= 0;
+var sell_cycles{t in 0 .. n} <= c * (Upper_cap - Lower_cap), >= 0;
 
-var u{t in 0 .. n-1};
+s.t. constraint1{t in 0 .. n-1}: sell[t] <= (1-buy_or_sell[t]) * Upper_sell - sell_prev[t];
+s.t. constraint2{t in 0 .. n-1}: sell[t] >= - sell_prev[t];
 
-s.t. constraint3{t in 0 .. n-1}: u[t] <= w[t] * U_u - b[t];
-s.t. constraint4{t in 0 .. n-1}: u[t] >= - b[t]; 
+s.t. constraint3{t in 0 .. n-1}: buy[t] <= buy_or_sell[t] * Upper_buy - buy_prev[t];
+s.t. constraint4{t in 0 .. n-1}: buy[t] >= - buy_prev[t]; 
 
-var x{t in 0 .. n} <= U_x, >= L_x;
+s.t. constraint5: cap[0] = cap_0;
+s.t. constraint6{t in 0 .. n-1}: cap[t+1] = cap[t] + alpha * (buy[t] + buy_prev[t]) - (sell[t] + sell_prev[t]) / beta;
+s.t. constraint7: cap[n] = cap_n;
 
-s.t. constraint5: x[0] = a_0;
-s.t. constraint6{t in 0 .. n-1}: x[t+1] = x[t] + alpha * (u[t] + b[t]) - (v[t] + d[t]) / beta;
-s.t. constraint7: x[n] = a_n;
+s.t. constraint8: buy_cycles[0] = 0;
+s.t. constraint9{t in 0 .. n-1}: buy_cycles[t+1] = buy_cycles[t] + alpha * (buy[t] + buy_prev[t]);
 
-var y1{t in 0 .. n} <= c * (U_x - L_x), >= 0;
+s.t. constraint10: sell_cycles[0] = 0;
+s.t. constraint11{t in 0 .. n-1}: sell_cycles[t+1] = sell_cycles[t] + (sell[t] + sell_prev[t]) / beta;
 
-s.t. constraint8: y1[0] = 0;
-s.t. constraint9{t in 0 .. n-1}: y1[t+1] = y1[t] + alpha * (u[t] + b[t]);
-
-var y2{t in 0 .. n} <= c * (U_x - L_x), >= 0;
-
-s.t. constraint10: y2[0] = 0;
-s.t. constraint11{t in 0 .. n-1}: y2[t+1] = y2[t] + (v[t] + d[t]) / beta;
-
-maximize obj_fun: sum{t in 0 .. n-1} p[t] * (v[t] - u[t]);
+maximize obj_fun: sum{t in 0 .. n-1} price[t] * (sell[t] - buy[t]);
