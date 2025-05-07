@@ -1,4 +1,5 @@
 Riešenia pre optimálne obchodovanie s batériou na vnútrodennom trhu s elektrickou energiou
+
 Solutions for optimal trading with battery on intraday electricity market
 
 Riešenia:
